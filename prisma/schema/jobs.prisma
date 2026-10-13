@@ -1,0 +1,53 @@
+// ============================================================================
+// Jobs domain
+// ============================================================================
+
+// Jobs are ingested from an external JobProvider (behind a provider-agnostic
+// adapter — see JobService/JobProvider interface in the app code, §28). This
+// table is a cache/normalized copy, not the source of truth.
+model Job {
+  id         String @id @default(uuid())
+  provider   String // e.g. "adzuna", "jooble" — whichever adapter sourced it
+  externalId String // the provider's own job id
+
+  title          String
+  company        String
+  country        String?
+  city           String?
+  remoteType     JobRemoteType?
+  employmentType EmploymentType?
+
+  salaryMin Int?
+  salaryMax Int?
+  currency  String?
+
+  skills         String[] @default([])
+  description    String   @db.Text
+  applicationUrl String
+
+  postedAt  DateTime?
+  fetchedAt DateTime  @default(now())
+  createdAt DateTime  @default(now())
+
+  savedBy SavedJob[]
+
+  @@unique([provider, externalId])
+  @@index([country, city])
+  @@index([title])
+  @@map("jobs")
+}
+
+model SavedJob {
+  id     String @id @default(uuid())
+  userId String
+  jobId  String
+
+  savedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobId])
+  @@index([userId])
+  @@map("saved_jobs")
+}

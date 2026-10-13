@@ -1,0 +1,167 @@
+// ============================================================================
+// Assessment domain
+// ============================================================================
+
+model Assessment {
+  id     String @id @default(uuid())
+  userId String
+
+  targetRole      String
+  difficulty      AssessmentDifficulty
+  experienceLevel ExperienceLevel
+
+  // Generation status is tracked separately from "has the user submitted
+  // it" — this row can be PENDING/PROCESSING/FAILED before any question
+  // exists (§20). `generationKey` is the idempotency key used so a retried
+  // POST /assessments never creates duplicate questions.
+  generationStatus   AIJobStatus @default(PENDING)
+  generationKey      String      @unique
+  failureReason      String?
+  generationAttempts Int         @default(0)
+
+  submittedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  user       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questions  AssessmentQuestion[]
+  answers    AssessmentAnswer[]
+  evaluation AssessmentEvaluation?
+
+  @@index([userId, createdAt])
+  @@map("assessments")
+}
+
+model AssessmentQuestion {
+  id           String @id @default(uuid())
+  assessmentId String
+
+  category           AssessmentCategory
+  difficulty         AssessmentDifficulty
+  questionText       String               @db.Text
+  questionType       QuestionType
+  options            Json? // for MULTIPLE_CHOICE: string[]
+  expectedConcepts   Json // string[]
+  evaluationCriteria Json // string[] / rubric notes
+  order              Int
+
+  aiProvider    String
+  aiModel       String
+  promptVersion String
+
+  createdAt DateTime @default(now())
+
+  assessment Assessment          @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  answer     AssessmentAnswer?
+  evaluation QuestionEvaluation?
+
+  @@unique([assessmentId, order])
+  @@map("assessment_questions")
+}
+
+model AssessmentAnswer {
+  id           String @id @default(uuid())
+  assessmentId String
+  questionId   String @unique
+  userId       String
+
+  answerText     String? @db.Text // free-text / pseudocode / explanation
+  selectedOption String? // for MULTIPLE_CHOICE
+
+  submittedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt // supports "save progress" before final submit
+
+  assessment Assessment          @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  question   AssessmentQuestion  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  evaluation QuestionEvaluation?
+
+  @@index([assessmentId])
+  @@map("assessment_answers")
+}
+
+// Per-question AI evaluation (§25).
+model QuestionEvaluation {
+  id         String @id @default(uuid())
+  answerId   String @unique
+  questionId String @unique
+
+  score       Int
+  maxScore    Int               @default(10)
+  correctness AnswerCorrectness
+
+  strengths              Json // string[]
+  weaknesses             Json // string[]
+  missingConcepts        Json // string[]
+  feedback               String @db.Text
+  recommendedStudyTopics Json // string[]
+
+  createdAt DateTime @default(now())
+
+  answer   AssessmentAnswer   @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  question AssessmentQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("question_evaluations")
+}
+
+// One overall, immutable evaluation per assessment (§24, §26).
+model AssessmentEvaluation {
+  id           String @id @default(uuid())
+  assessmentId String @unique
+
+  status        AIJobStatus @default(PENDING)
+  failureReason String?
+
+  overallScore      Int?
+  readinessLevel    ReadinessLevel?
+  strongestCategory AssessmentCategory?
+  weakestCategory   AssessmentCategory?
+
+  overallStrengths         Json? // string[]
+  overallWeaknesses        Json? // string[]
+  conceptsNeedingAttention Json? // string[]
+  recommendedLearningPath  Json? // string[]
+  recruiterSummary         String? @db.Text
+
+  aiProvider    String?
+  aiModel       String?
+  promptVersion String?
+
+  createdAt DateTime @default(now())
+
+  assessment Assessment           @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  categories CategoryEvaluation[]
+
+  @@map("assessment_evaluations")
+}
+
+// Per-category (Technical/OOP/DSA/Analytics/Problem Solving) breakdown of
+// the overall evaluation (§24).
+model CategoryEvaluation {
+  id                     String @id @default(uuid())
+  assessmentEvaluationId String
+
+  category        AssessmentCategory
+  score           Int
+  strengths       Json // string[]
+  weaknesses      Json // string[]
+  missingConcepts Json // string[]
+  recommendations Json // string[]
+  attentionLevel  AttentionLevel
+
+  assessmentEvaluation AssessmentEvaluation @relation(fields: [assessmentEvaluationId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentEvaluationId, category])
+  @@map("category_evaluations")
+}
+
+// Deterministic score → readiness-level ranges (§27). Backend-owned; AI
+// never decides these bands. Kept in the DB (rather than hardcoded) so
+// they're configurable without a deploy.
+model ReadinessLevelConfig {
+  id       String         @id @default(uuid())
+  level    ReadinessLevel @unique
+  minScore Int
+  maxScore Int
+
+  @@map("readiness_level_configs")
+}

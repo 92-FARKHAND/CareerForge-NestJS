@@ -1,0 +1,70 @@
+// ============================================================================
+// Learning domain (OOP + DSA)
+// ============================================================================
+
+model LearningCourse {
+  id          String        @id @default(uuid())
+  track       LearningTrack @unique // OOP | DSA — one course per track for V1
+  title       String
+  description String?       @db.Text
+  order       Int           @default(0)
+
+  modules LearningModule[]
+
+  @@map("learning_courses")
+}
+
+model LearningModule {
+  id       String @id @default(uuid())
+  courseId String
+  title    String
+  order    Int    @default(0)
+
+  course  LearningCourse   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons LearningLesson[]
+
+  @@unique([courseId, order])
+  @@map("learning_modules")
+}
+
+model LearningLesson {
+  id       String @id @default(uuid())
+  moduleId String
+  slug     String // stable, human-readable id used in URLs, e.g. "encapsulation"
+  title    String
+  order    Int    @default(0)
+
+  concept            String  @db.Text
+  simpleExplanation  String  @db.Text
+  realWorldExample   String  @db.Text
+  pseudoCode         String  @db.Text
+  programmingExample String? @db.Text // added once language support ships
+  commonMistakes     Json // string[]
+  miniQuiz           Json // [{ question, options[], correctIndex, explanation }]
+  practiceQuestion   String  @db.Text
+
+  module   LearningModule     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  progress LearningProgress[]
+
+  @@unique([moduleId, slug])
+  @@unique([moduleId, order])
+  @@map("learning_lessons")
+}
+
+model LearningProgress {
+  id       String @id @default(uuid())
+  userId   String
+  lessonId String
+
+  status               LessonCompletionStatus @default(NOT_STARTED)
+  completionPercentage Int                    @default(0)
+  lastAccessedAt       DateTime               @default(now())
+  completedAt          DateTime?
+
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson LearningLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+  @@index([userId])
+  @@map("learning_progress")
+}

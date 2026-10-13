@@ -1,0 +1,64 @@
+// ============================================================================
+// AI usage tracking (§34) + Notifications
+// ============================================================================
+
+// Every AI call the backend makes gets one row here, regardless of which
+// domain triggered it — used for cost monitoring, debugging, and future
+// per-user usage limits (§35).
+model AIUsage {
+  id     String  @id @default(uuid())
+  userId String?
+
+  operation AIOperation
+  provider  String
+  model     String
+
+  inputTokens   Int
+  outputTokens  Int
+  estimatedCost Decimal     @db.Decimal(10, 6)
+  status        AIJobStatus
+
+  // Loose link back to whatever it was for, without a hard FK to every
+  // possible domain table (keeps this table cheap to write to on every
+  // single AI call).
+  relatedEntityType String? // e.g. "CompatibilityAnalysis", "Assessment"
+  relatedEntityId   String?
+
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([operation, createdAt])
+  @@map("ai_usages")
+}
+
+// Per-user, per-feature usage limits (§35 free-tier examples). Kept as
+// rows rather than hardcoded so limits can change without a deploy, and so
+// multiple plans can coexist later.
+model UsageLimitConfig {
+  id          String      @id @default(uuid())
+  planName    String      @default("free")
+  operation   AIOperation
+  maxPerMonth Int
+
+  @@unique([planName, operation])
+  @@map("usage_limit_configs")
+}
+
+model Notification {
+  id     String @id @default(uuid())
+  userId String
+
+  type    NotificationType
+  title   String
+  message String           @db.Text
+  isRead  Boolean          @default(false)
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}

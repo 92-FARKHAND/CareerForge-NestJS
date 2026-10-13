@@ -1,0 +1,138 @@
+// ============================================================================
+// Shared Enums
+// ============================================================================
+
+enum ExperienceLevel {
+  STUDENT
+  ENTRY_LEVEL
+  JUNIOR
+  MID_LEVEL
+  SENIOR
+  LEAD
+}
+
+enum WorkMode {
+  REMOTE
+  ONSITE
+  HYBRID
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+}
+
+// ---- Resumes ----------------------------------------------------------
+
+enum ResumeStatus {
+  UPLOADED
+  PARSING
+  PARSED
+  FAILED
+}
+
+// ---- AI-operation lifecycle (shared by any long-running AI job) -------
+
+enum AIJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// ---- Compatibility ------------------------------------------------------
+
+enum SkillMatchType {
+  MATCHED
+  PARTIAL
+  MISSING
+}
+
+// ---- Learning -----------------------------------------------------------
+
+enum LearningTrack {
+  OOP
+  DSA
+}
+
+enum LessonCompletionStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+// ---- Assessments ----------------------------------------------------------
+
+enum AssessmentDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum AssessmentCategory {
+  TECHNICAL_ROUND
+  OOP
+  DSA
+  ANALYTICS
+  PROBLEM_SOLVING
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  TEXT_ANSWER
+  TECHNICAL_EXPLANATION
+  PSEUDOCODE
+}
+
+enum AnswerCorrectness {
+  CORRECT
+  PARTIAL
+  INCORRECT
+}
+
+enum AttentionLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ReadinessLevel {
+  NEEDS_IMPROVEMENT
+  DEVELOPING
+  GOOD
+  STRONG
+  EXCELLENT
+}
+
+// ---- Jobs -----------------------------------------------------------------
+
+enum JobRemoteType {
+  REMOTE
+  ONSITE
+  HYBRID
+}
+
+// ---- AI usage / cost tracking ---------------------------------------------
+
+enum AIOperation {
+  RESUME_EXTRACTION
+  COMPATIBILITY_ANALYSIS
+  LEARNING_CONTENT_GENERATION
+  ASSESSMENT_GENERATION
+  ASSESSMENT_EVALUATION
+  JOB_MATCH
+  RECOMMENDATION
+}
+
+// ---- Notifications ----------------------------------------------------------
+
+enum NotificationType {
+  COMPATIBILITY_READY
+  ASSESSMENT_READY
+  ASSESSMENT_EVALUATED
+  LEARNING_REMINDER
+  SYSTEM
+}
+

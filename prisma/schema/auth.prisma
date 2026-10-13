@@ -1,0 +1,79 @@
+// ============================================================================
+// Auth domain
+// ============================================================================
+
+model User {
+  id           String  @id @default(uuid())
+  email        String  @unique
+  passwordHash String
+  isEmailVerified Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  profile              Profile?
+  refreshTokens        RefreshToken[]
+  passwordResetTokens  PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  resumes              Resume[]
+  compatibilityAnalyses CompatibilityAnalysis[]
+  learningProgress     LearningProgress[]
+  assessments          Assessment[]
+  savedJobs            SavedJob[]
+  aiUsages             AIUsage[]
+  notifications        Notification[]
+
+  @@map("users")
+}
+
+// Refresh tokens are stored hashed and rotated on every use (rotation +
+// reuse-detection). Never store the raw token.
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  replacedByTokenHash String?
+  createdByIp String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// "Forgot password" / "reset password" architecture (§6 of spec).
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// Sent on signup (and resendable). Same shape as PasswordResetToken by
+// design — both are single-use, expiring, opaque tokens — kept as separate
+// models rather than a shared "type" column so each has its own retention
+// policy and the query planner isn't scanning a mixed-purpose table.
+model EmailVerificationToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}

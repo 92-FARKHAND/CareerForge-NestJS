@@ -1,0 +1,85 @@
+// ============================================================================
+// Compatibility domain
+// ============================================================================
+
+// Immutable snapshot of a compatibility run (§14: "old analyses should not
+// silently change" if the user later edits their profile or re-uploads a
+// resume). Score breakdown fields are denormalized onto this row precisely
+// so a later change to CompatibilitySkill or Profile never alters history.
+model CompatibilityAnalysis {
+  id     String @id @default(uuid())
+  userId String
+
+  resumeVersionId String
+  targetRole      String?
+  jobDescription  String? @db.Text
+
+  status        AIJobStatus @default(PENDING)
+  failureReason String?
+
+  overallScore       Int?
+  technicalScore     Int?
+  experienceScore    Int?
+  projectsScore      Int?
+  toolsScore         Int?
+  roleAlignmentScore Int?
+  educationScore     Int?
+  readinessLevel     ReadinessLevel?
+
+  strengths       Json?
+  weaknesses      Json?
+  recommendations Json?
+
+  aiProvider    String?
+  aiModel       String?
+  promptVersion String?
+
+scoringConfigVersion String @default("v1")
+
+  createdAt DateTime @default(now())
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resumeVersion ResumeVersion @relation(fields: [resumeVersionId], references: [id], onDelete: Restrict)
+  skills        CompatibilitySkill[]
+
+  @@index([userId, createdAt])
+  @@map("compatibility_analyses")
+}
+
+
+// Matched / partial / missing skill breakdown for one analysis.
+
+model CompatibilitySkill {
+  id                      String @id @default(uuid())
+  compatibilityAnalysisId String
+
+  skillName String
+  matchType SkillMatchType
+
+  compatibilityAnalysis CompatibilityAnalysis @relation(fields: [compatibilityAnalysisId], references: [id], onDelete: Cascade)
+
+  @@index([compatibilityAnalysisId])
+  @@map("compatibility_skills")
+}
+
+// Centralized, versioned scoring weights (§13: "weights should be
+// centralized rather than duplicated across services"). Only one row
+// should be `isActive` at a time; keeping history lets you explain how an
+// old score was computed even after weights change.
+
+model CompatibilityScoringConfig {
+  id       String  @id @default(uuid())
+  version  String  @unique
+  isActive Boolean @default(false)
+
+  technicalSkillsWeight Int @default(30)
+  experienceWeight      Int @default(20)
+  projectsWeight        Int @default(20)
+  toolsWeight           Int @default(15)
+  roleAlignmentWeight   Int @default(10)
+  educationWeight       Int @default(5)
+
+  createdAt DateTime @default(now())
+
+  @@map("compatibility_scoring_configs")
+}

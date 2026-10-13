@@ -1,0 +1,85 @@
+// ============================================================================
+// Resume domain
+// ============================================================================
+
+// The uploaded file itself (Cloudinary-backed). A user may re-upload; the
+// previous Resume rows are kept for audit/history but only one is `isActive`.
+model Resume {
+  id     String @id @default(uuid())
+  userId String
+
+  // Cloudinary is accessed only through FileStorageService — nothing here
+  // is a public URL. `storageKey` is the provider-agnostic reference
+  // (Cloudinary public_id today, S3 key tomorrow) resolved to a signed URL
+  // on demand by the backend.
+  storageProvider  String @default("cloudinary")
+  storageKey       String
+  originalFileName String
+  mimeType         String
+  fileSizeBytes    Int
+
+  status   ResumeStatus @default(UPLOADED)
+  isActive Boolean      @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // soft delete — user-initiated resume deletion
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  versions ResumeVersion[]
+
+  @@index([userId, isActive])
+  @@map("resumes")
+}
+
+// A structured, AI-extracted snapshot of a resume's content at a point in
+// time. Re-parsing (or re-uploading) creates a NEW version rather than
+// mutating the old one, because CompatibilityAnalysis rows reference a
+// specific ResumeVersion and must stay immutable snapshots (§14).
+model ResumeVersion {
+  id       String @id @default(uuid())
+  resumeId String
+
+  status AIJobStatus @default(PENDING)
+
+  // Raw extracted text (for re-processing / debugging), plus the
+  // structured fields the AI produced. Kept as JSON because resume shape
+  // is inherently variable; CandidateSkill below normalizes the skill
+  // list for querying/matching.
+  rawText        String? @db.Text
+  name           String?
+  summary        String? @db.Text
+  experience     Json? // array of { title, company, startDate, endDate, description }
+  education      Json? // array of { institution, degree, field, startDate, endDate }
+  projects       Json? // array of { name, description, technologies, url }
+  certifications Json? // array of { name, issuer, date }
+  links          Json? // { github, portfolio, linkedin, other[] }
+
+  failureReason String?
+
+  createdAt DateTime @default(now())
+
+  resume                Resume                  @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  skills                CandidateSkill[]
+  compatibilityAnalyses CompatibilityAnalysis[]
+
+  @@index([resumeId])
+  @@map("resume_versions")
+}
+
+// Normalized skill list extracted from a resume version — this is what
+// CompatibilityAnalysis diffs against a role's required skills.
+model CandidateSkill {
+  id              String @id @default(uuid())
+  resumeVersionId String
+
+  name             String
+  category         String? // e.g. "language", "framework", "tool", "soft-skill"
+  proficiencyGuess String? // AI's best-effort guess; never fabricated, may be null
+
+  resumeVersion ResumeVersion @relation(fields: [resumeVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([resumeVersionId, name])
+  @@index([name])
+  @@map("candidate_skills")
+}
