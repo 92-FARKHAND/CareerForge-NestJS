@@ -12,38 +12,39 @@ const prisma = new PrismaClient({
 });
 
 async function main() {
-  console.log(
-    'Seeding compatibility scoring configuration...',
-  );
+  console.log('Seeding compatibility scoring configuration...');
 
-  // Deactivate existing configurations
-  await prisma.compatibilityScoringConfig.updateMany({
-    data: {
-      isActive: false,
+  // Create or activate the default configuration
+  await prisma.compatibilityScoringConfig.upsert({
+    where: { version: 'v1' },
+    update: {
+      technicalSkillsWeight: 30,
+      experienceWeight: 20,
+      projectsWeight: 15,
+      toolsWeight: 10,
+      roleAlignmentWeight: 15,
+      educationWeight: 10,
+      isActive: true,
+    },
+    create: {
+      version: 'v1',
+      technicalSkillsWeight: 30,
+      experienceWeight: 20,
+      projectsWeight: 15,
+      toolsWeight: 10,
+      roleAlignmentWeight: 15,
+      educationWeight: 10,
+      isActive: true,
     },
   });
 
-  // Create the active configuration
-  const config =
-    await prisma.compatibilityScoringConfig.create({
-      data: {
-        version: '1',
+  // Deactivate all other configurations
+  await prisma.compatibilityScoringConfig.updateMany({
+    where: { version: { not: 'v1' } },
+    data: { isActive: false },
+  });
 
-        technicalSkillsWeight: 30,
-        experienceWeight: 20,
-        projectsWeight: 15,
-        toolsWeight: 10,
-        roleAlignmentWeight: 15,
-        educationWeight: 10,
-
-        isActive: true,
-      },
-    });
-
-  console.log(
-    'Compatibility scoring configuration created:',
-  );
-  console.log(config);
+  console.log('Compatibility scoring configuration seeded successfully.');
 }
 
 main()
